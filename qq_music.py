@@ -7,7 +7,6 @@ from requests.cookies import RequestsCookieJar
 import util
 import random
 import time
-import json
 import os
 import pickle
 
@@ -108,7 +107,7 @@ class Login:
         }
         url = self._get_polling_url('ptqrshow')
         response = self.session.get(url)
-        util.save_img(response, "login_qr.png")
+        util.save_file(response, "login_qr.png")
 
     def check(self):
         pt_login_sig = self.session.cookies.get('pt_login_sig')
@@ -191,14 +190,15 @@ class Login:
                 }
             }
         }
-        response = self.session.post('https://u.y.qq.com/cgi-bin/musicu.fcg', headers=headers, data=json.dumps(param))
+        response = self.session.post('https://u.y.qq.com/cgi-bin/musicu.fcg', headers=headers,
+                                     data=util.dumps_without_space(param))
         return response
 
     # 登陆
     def login(self):
         # 获取登陆二维码
         self.get_qrlogin_pic()
-        print('清扫描二维码登陆')
+        print('请扫描二维码登陆')
         image_open = Image.open(os.getcwd() + '/login_qr.png')
         image_open.show()
         while (True):
@@ -238,7 +238,7 @@ class QqMusicUtil(object):
                                       "fav_type": 1},
                                  "module": "music.favor_system_read"}
                 }
-        dumps = json.dumps(data)
+        dumps = util.dumps_without_space(data)
         payload = {
             'sign': util.get_sign(dumps),
             'data': dumps,
@@ -246,45 +246,51 @@ class QqMusicUtil(object):
         response = self.session.get('https://u.y.qq.com/cgi-bin/musics.fcg', params=payload)
         return response
 
+    # 歌曲搜索
+    def search_music(self, kw):
+        url = 'https://c.y.qq.com/soso/fcgi-bin/client_search_cp'
+        # 页码
+        p = 1
+        # 每页数量
+        n = 15
+        # 关键字
+        w = parse.quote(kw)
+        print(w)
+        payload = {
+            'p': p,
+            'n': n,
+            'w': kw
+        }
+        response = self.session.get(url, params=payload)
+        return response
 
-if __name__ == '__main__':
-    # print(get_pt()['str'])
-    # url = "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=716027609&daid=383&style=33&theme=2&login_text=%E6%8E%88%E6%9D%83%E5%B9%B6%E7%99%BB%E5%BD%95&hide_title_bar=1&hide_border=1&target=self&s_url=https%3A%2F%2Fgraph.qq.com%2Foauth2.0%2Flogin_jump&pt_3rd_aid=100497308&pt_feedback_link=https%3A%2F%2Fsupport.qq.com%2Fproducts%2F77942%3FcustomInfo%3D.appid100497308"
-    # print(util.ptlogin2() == url)
-    # get = requests.get(url)
-    # print(get.cookies)
+    def get_music_url(self, music_id):
+        url = 'https://u.y.qq.com/cgi-bin/musics.fcg'
+        data = {
+            'req_0': {
+                'module': 'vkey.GetVkeyServer',
+                'method': 'CgiGetVkey',
+                'param': {'guid': '8611065755', 'songmid': [music_id],
+                          'songtype': [0], 'uin': self.spider_session.get_user_id(), 'loginflag': 1, 'platform': '20'}
+            }
+        }
+        dumps = util.dumps_without_space(data)
+        payload = {
+            'sign': util.get_sign(dumps),
+            'data': dumps,
+        }
+        print(payload)
+        response = self.session.get(url, params=payload)
+        return response
 
-    spider_session = SpiderSession()
+    # 获取歌曲列表
+    def get_music_list(self, response):
+        data = util.get_callback_data(response.content.decode())
+        data_ = data['data']
+        list_ = data_['song']['list']
+        return list_
 
-    login = Login(spider_session)
-
-    login.login()
-
-    # login.ptlogin2()
-    # login.get_qrlogin_pic()
-    # while (True):
-    #     check = login.check()
-    #     values = check.cookies.values()
-    #     print(len(values))
-    #     if len(values) > 0:
-    #         # 字节转化为字符串
-    #         s = str(check.content)
-    #         split = s.split(',')
-    #         get = login.session.get(split[2].replace('\'', ''))
-    #         print(get)
-    #         print(s)
-    #         break
-    #     time.sleep(3)
-    # authorize = login.authorize()
-    # code = util.get_code(authorize.url)
-    # response = login.get_login_cookie(code)
-    # spider_session.save_cookies_to_local(spider_session.get_user_id())
-    # for cookie in response.cookies:
-    #     print(cookie.name + "=" + cookie.value + ";")
-
-    # print(util.get_sign(
-    #     '{"comm":{"ct":24,"cv":0},"getFavorList":{"method":"get_favor_list","param":{"userid":"10933495","fav_type":1},"module":"music.favor_system_read"}}'))
-    # pass
-    music_util = QqMusicUtil()
-    check_login = music_util.check_login()
-    print(check_login.content)
+    # 获取下载歌曲链接
+    def get_music_down_url(self, response):
+        json_to_dict = util.json_to_dict(response.content.decode())
+        return json_to_dict['req_0']['data']['sip'][0] + json_to_dict['req_0']['data']['midurlinfo'][0]['purl']

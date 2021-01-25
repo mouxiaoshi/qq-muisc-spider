@@ -18,4 +18,11 @@ function guid() {
         var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     }).toUpperCase();
-};
+}
+
+function getData(fun){
+    function callback(data){
+        return data;
+    }
+    return eval(fun)
+}
