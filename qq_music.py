@@ -252,7 +252,7 @@ class QqMusicUtil(object):
         # 页码
         p = 1
         # 每页数量
-        n = 15
+        n = 30
         # 关键字
         w = parse.quote(kw)
         print(w)
@@ -290,7 +290,19 @@ class QqMusicUtil(object):
         list_ = data_['song']['list']
         return list_
 
+    # 获取文件后缀
+    def get_music_suffix(self, response):
+        json_to_dict = util.json_to_dict(response.content.decode())
+        file_name = json_to_dict['req_0']['data']['midurlinfo'][0]['filename']
+        suffix = file_name[file_name.rfind('.'):]
+        return suffix
+
     # 获取下载歌曲链接
     def get_music_down_url(self, response):
         json_to_dict = util.json_to_dict(response.content.decode())
         return json_to_dict['req_0']['data']['sip'][0] + json_to_dict['req_0']['data']['midurlinfo'][0]['purl']
+
+    # 下载音乐
+    def down_music(self, url, song_name, singer, suffix):
+        response = self.session.get(url)
+        util.save_file(response, 'files/' + song_name + '-' + singer + suffix)
